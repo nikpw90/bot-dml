@@ -41,7 +41,7 @@ async def send_pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("картинка не знайдена")
 
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("commands", commands))
     for cmd in pics:
