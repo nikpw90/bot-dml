@@ -2,7 +2,7 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 pics = {
     "pic1": 'dragon.png',
