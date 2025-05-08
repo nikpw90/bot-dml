@@ -2,9 +2,7 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, PicklePersistence
 
-# Use environment variable for the token
-TOKEN = os.getenv("BOT_TOKEN")
-#TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
+TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
 
 # Define folders with custom names and pictures
 FOLDERS = {
