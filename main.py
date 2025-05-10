@@ -1,4 +1,5 @@
 import os
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, PicklePersistence, MessageHandler, filters
 from datetime import datetime, timedelta
@@ -230,20 +231,20 @@ FOLDERS = {
                 "path": "dungeoun/dragucci",
                 "pictures": {
                     "a": "Драгучи Часть 1",
-                    "b": "",
-                    "c": "",
-                    "d": "",
-                    "e": "",
-                    "f": "",
-                    "g": "",
-                    "h": "",
-                    "i": "",
-                    "j": "",
+                    "b": "Драгучи Часть 1",
+                    "c": "Драгучи Часть 1",
+                    "d": "Драгучи Часть 1",
+                    "e": "Драгучи Часть 1",
+                    "f": "Драгучи Часть 1",
+                    "g": "Драгучи Часть 1",
+                    "h": "Драгучи Часть 1",
+                    "i": "Драгучи Часть 1",
+                    "j": "Драгучи Часть 1",
                     "k": "Драгучи Часть 2",
-                    "l": "",
-                    "m": "",
-                    "n": "",
-                    "o": ""
+                    "l": "Драгучи Часть 2",
+                    "m": "Драгучи Часть 2",
+                    "n": "Драгучи Часть 2",
+                    "o": "Драгучи Часть 2"
                 }
             }
         }
@@ -693,4 +694,10 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            print("Starting bot...")
+            main()  # Your bot's main function
+        except Exception as e:
+            print(f"Bot crashed with error: {e}. Restarting in 5 seconds...")
+            time.sleep(5)
