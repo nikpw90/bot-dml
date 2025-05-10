@@ -695,9 +695,9 @@ def main():
     print("Бот is running...")
     app.run_webhook(
         listen="0.0.0.0",
-        port=443,
+        port=8443,  # Use a non-restricted port
         url_path="webhook",
-        webhook_url=WEBHOOK_URL
+        webhook_url=f"{WEBHOOK_URL}/webhook"
     )
 
 if __name__ == "__main__":
