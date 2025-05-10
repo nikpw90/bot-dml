@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
 
+WEBHOOK_URL = "https://nax90.pythonanywhere.com"
+
 # Define folders with custom names and pictures
 FOLDERS = {
     "buildings": {
@@ -691,7 +693,12 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, goodbye_member))  # Goodbye members handler
 
     print("Бот is running...")
-    app.run_polling()
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=443,
+        url_path="webhook",
+        webhook_url=WEBHOOK_URL
+    )
 
 if __name__ == "__main__":
     while True:
