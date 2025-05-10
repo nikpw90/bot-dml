@@ -695,7 +695,7 @@ def main():
     print("Бот is running...")
     app.run_webhook(
         listen="127.0.0.1",
-        port=8000,
+        port=9000,  # Use the free port
         url_path="webhook",
         webhook_url=f"{WEBHOOK_URL}/webhook"
     )
