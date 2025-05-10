@@ -6,8 +6,6 @@ from datetime import datetime, timedelta
 
 TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
 
-WEBHOOK_URL = "https://nax90.pythonanywhere.com"
-
 # Define folders with custom names and pictures
 FOLDERS = {
     "buildings": {
@@ -478,13 +476,12 @@ async def subfolder_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text(f"Подпапка '{subfolder_data['display_name']}' пустая.")
         return
 
-    # Decide which function to use based on the folder
-    if subfolder_key == "dragucci":  # Send as media groups
+    # Special handling for the 'dragucci' subfolder
+    if subfolder_key == "dragucci":
         await send_pictures_as_media_groups(update, context, subfolder_data)
-    elif subfolder_key == "pools":  # Send one picture at a time
-        await send_pictures_one_by_one(update, context, parent_folder_key, subfolder_key, subfolder_data)
     else:
-        await query.message.reply_text("Эта папка не настроена для отправки.")
+        # Send pictures one by one for other subfolders
+        await send_pictures_one_by_one(update, context, parent_folder_key, subfolder_key, subfolder_data)
 
 # Callback handler for picture selection
 async def picture_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -494,7 +491,8 @@ async def picture_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Extract folder and file information from the callback data
     data_parts = query.data.split("_")
     folder_key = data_parts[1]
-    file_name = data_parts[2]
+    subfolder_key = data_parts[2] if len(data_parts) > 3 else None
+    file_name = data_parts[-1]
 
     # Check if the folder exists in the FOLDERS dictionary
     folder_data = FOLDERS.get(folder_key)
@@ -502,24 +500,23 @@ async def picture_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Папка с карточками не найдена.")
         return
 
+    # Determine if the image is in a subfolder or the main folder
+    if subfolder_key:
+        subfolder_data = folder_data.get("subfolders", {}).get(subfolder_key)
+        if not subfolder_data:
+            await query.message.reply_text("Подпапка не найдена.")
+            return
+        folder_path = subfolder_data["path"]
+    else:
+        folder_path = folder_data["path"]
+
     # Construct the file path
-    folder_path = folder_data["path"]
     file_path = os.path.join(folder_path, f"{file_name}.jpg")  # Assuming all files are .jpg
 
     # Check if the file exists
     if not os.path.exists(file_path):
-        # If the file is not found, check for subfolders
-        subfolders = folder_data.get("subfolders", {})
-        for subfolder_key, subfolder_data in subfolders.items():
-            subfolder_path = subfolder_data["path"]
-            subfolder_file_path = os.path.join(subfolder_path, f"{file_name}.jpg")
-            if os.path.exists(subfolder_file_path):
-                file_path = subfolder_file_path
-                break
-        else:
-            # If the file is still not found, send an error message
-            await query.message.reply_text(f"Картинка '{file_name}.jpg' не найдена.")
-            return
+        await query.message.reply_text(f"Картинка '{file_name}.jpg' не найдена.")
+        return
 
     # Send the image
     with open(file_path, "rb") as photo:
@@ -693,12 +690,7 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, goodbye_member))  # Goodbye members handler
 
     print("Бот is running...")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=8443,  # Use port 8443
-        url_path="webhook",
-        webhook_url=f"{WEBHOOK_URL}/webhook"
-    )
+    app.run_polling()
 
 if __name__ == "__main__":
     while True:
