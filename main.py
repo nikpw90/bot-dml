@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMe
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, PicklePersistence, MessageHandler, filters
 from datetime import datetime, timedelta
 
-TOKEN = '7833602107:AAHVVCVRfcTkVRLvi7V9fOcQaYnXBQs47MY'
+TOKEN = '7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4'
 
 # Define folders with custom names and pictures
 FOLDERS = {
@@ -207,7 +207,7 @@ FOLDERS = {
         "path": "dungeoun",
         "pictures": {
             "jopa": "Цикл Жопы",
-            "50ko": "Слабые атаки каждого пула (50ko)",
+            "50ko": "Слабые атаки каждого пула (Первые 50КО)",
             "weakattacks": "Слабые атаки каждой стихии"
             
         },
@@ -230,7 +230,7 @@ FOLDERS = {
                 "display_name": "Драгучи",
                 "path": "dungeoun/dragucci",
                 "pictures": {
-                    "a": "Драгучи Часть 1",
+                    "a": "",
                     "b": "Драгучи Часть 1",
                     "c": "Драгучи Часть 1",
                     "d": "Драгучи Часть 1",
@@ -310,8 +310,12 @@ def arrange_buttons(buttons, max_columns=5, back_button=None, delete_button=None
 # /start handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привет! Я ДМЛ бот который поможет найти необходимую информацию с легкостью. \n"
-        "Используйте /commands чтобы открыть главное меню."
+        "Привет! Я ДМЛ бот, который поможет быстро найти необходимую информацию. \n"
+        "Разработан пользователем @nklym \n"
+        "Материалы используемые ботом взяты с [ДМЛ Форума](https://t.me/drakonomaniyaa_forum) \n"
+        "Используйте /commands чтобы открыть главное меню.",
+        parse_mode="Markdown",
+        disable_web_page_preview=True
     )
 
 # Callback handler for deleting messages
@@ -571,6 +575,10 @@ async def useful_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Function to greet new members and store their join time
 async def greet_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for member in update.message.new_chat_members:
+        # Skip greeting if the new member is the bot itself
+        if member.id == context.bot.id:
+            continue
+
         username = member.username or member.first_name
         user_id = member.id
         # Store the join time in context.chat_data
