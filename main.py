@@ -1,5 +1,6 @@
 # git clone https://github.com/nikpw90/bot-dml.git - clone repo to console
 # cd bot-dml - go to copied repo
+# cd ~/bot-dml
 # python3 -m venv venv - create virtual environment
 # source venv/bin/activate - activate virtual environment
 # pip install -r requirements.txt
@@ -14,7 +15,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from datetime import datetime, timedelta
 
 TOKEN = '7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4'
-git pull origin main
+
 # Define folders with custom names and pictures
 FOLDERS = {
     "buildings": {
