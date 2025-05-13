@@ -117,14 +117,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
     if query.data == "pass_message" and query.from_user.id == ADMIN_ID:
         await query.message.reply_text("Отправь мне сообщение, фото, видео, стикер или GIF, которое нужно разослать всем пользователям и группам, подписанным на бота.")
-        context.user_data["awaiting_broadcast"] = True
+        context.user_data["awaiting_broadcast"] = True  # Set the flag to await a broadcast message
     elif query.data == "delete_panel" and query.from_user.id == ADMIN_ID:
         await query.message.delete()
 
 # Function to handle the broadcast message and send it immediately to all subscribers
 async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id != ADMIN_ID:
-        return  # Ignore messages from non-admin users
+    # Ensure the message is from the admin and the bot is awaiting a broadcast message
+    if update.effective_user.id != ADMIN_ID or not context.user_data.get("awaiting_broadcast", False):
+        return  # Ignore messages from non-admin users or if not awaiting a broadcast
+
+    # Reset the flag after receiving the broadcast message
+    context.user_data["awaiting_broadcast"] = False
 
     # Track failed deliveries
     failed_users = []
@@ -144,6 +148,59 @@ async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT
     for group_id in groups:
         try:
             await context.bot.copy_message(chat_id=group_id, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        except Exception as e:
+            print(f"Failed to send message to group {group_id}: {e}")
+            failed_groups.append(group_id)
+
+    # Send a confirmation message back to the admin
+    total_users = len(users)
+    total_groups = len(groups)
+    failed_users_count = len(failed_users)
+    failed_groups_count = len(failed_groups)
+
+    confirmation_message = (
+        f"✅ Message successfully sent!\n\n"
+        f"👤 Users: {total_users - failed_users_count}/{total_users} delivered\n"
+        f"👥 Groups: {total_groups - failed_groups_count}/{total_groups} delivered\n"
+    )
+
+    if failed_users_count > 0 or failed_groups_count > 0:
+        confirmation_message += "\n⚠️ Some deliveries failed. Check logs for details."
+
+    await update.message.reply_text(confirmation_message)
+
+# Function to handle the broadcast command
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    # Check if the admin provided a message to broadcast
+    if not context.args:
+        await update.message.reply_text("Please provide a message to broadcast. Usage: /broadcast <message>")
+        return
+
+    # Combine the arguments into a single message
+    message = " ".join(context.args)
+
+    # Track failed deliveries
+    failed_users = []
+    failed_groups = []
+
+    # Broadcast the message to all individual users
+    for user_id in users:
+        if user_id == ADMIN_ID:
+            continue  # Skip sending the message back to the admin's private chat
+        try:
+            await context.bot.send_message(chat_id=user_id, text=message)
+        except Exception as e:
+            print(f"Failed to send message to user {user_id}: {e}")
+            failed_users.append(user_id)
+
+    # Broadcast the message to all groups
+    for group_id in groups:
+        try:
+            await context.bot.send_message(chat_id=group_id, text=message)
         except Exception as e:
             print(f"Failed to send message to group {group_id}: {e}")
             failed_groups.append(group_id)
@@ -921,6 +978,7 @@ def main():
     app.add_handler(MessageHandler(filters.Text("админ") & filters.ChatType.PRIVATE, admin_panel))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_broadcast_message))
+    app.add_handler(CommandHandler("broadcast", broadcast_command))
 
     # Add handlers for testing
     app.add_handler(CommandHandler("send_text_with_links", send_text_with_links))
@@ -928,6 +986,9 @@ def main():
     app.add_handler(CommandHandler("send_video_with_description", send_video_with_description))
     app.add_handler(CommandHandler("send_image_with_link_description", send_image_with_link_description))
     app.add_handler(CommandHandler("send_video_with_link_description", send_video_with_link_description))
+
+    # Add handler for broadcasting messages (only when awaiting a broadcast)
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_broadcast_message))
 
     print("Бот is running...")
     app.run_polling()
