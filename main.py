@@ -7,14 +7,160 @@
 # python main.py - run bot
 
 # git pull origin main (If you need to update your project with the latest changes)
+# pip freeze > requirements.txt to generate requirements.txt file
 
 import os
 import time
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+import json  # Import JSON for saving and loading subscription data
+import asyncio  # Import asyncio for delay functionality
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Chat
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, PicklePersistence, MessageHandler, filters
 from datetime import datetime, timedelta
 
+#main.py bot token: 7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4
+#check.py bot token: 7795138996:AAHAI8AXDEP9aX6uTm4yXXS1XwzW-v5iN2U
 TOKEN = '7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4'
+
+# File to store subscription data
+SUBSCRIPTION_FILE = "subscriptions.json"
+
+# Sets to store user and group chat IDs
+users = set()
+groups = set()
+
+# Replace with your Telegram user ID
+ADMIN_ID = 5503857768  # Replace with your actual Telegram user ID
+
+# Load subscriptions from a JSON file
+def load_subscriptions():
+    global users, groups
+    try:
+        with open(SUBSCRIPTION_FILE, "r") as file:
+            data = json.load(file)
+            users = set(data.get("users", []))
+            groups = set(data.get("groups", []))
+    except FileNotFoundError:
+        users = set()
+        groups = set()
+
+# Save subscriptions to a JSON file
+def save_subscriptions():
+    with open(SUBSCRIPTION_FILE, "w") as file:
+        json.dump({"users": list(users), "groups": list(groups)}, file)
+
+# Subscribe command handler
+async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    if chat.type == Chat.PRIVATE:
+        if chat.id in users:
+            response = await update.message.reply_text("Вы уже подписаны.")
+            await asyncio.sleep(3)
+            await update.message.delete()
+            await response.delete()
+        else:
+            users.add(chat.id)
+            save_subscriptions()
+            await update.message.reply_text("Вы подписались на бота. Теперь вы будете получать сообщения от него.")
+    elif chat.type in [Chat.GROUP, Chat.SUPERGROUP]:
+        if chat.id in groups:
+            response = await update.message.reply_text("Группа уже подписана.")
+            await asyncio.sleep(3)
+            await update.message.delete()
+            await response.delete()
+        else:
+            groups.add(chat.id)
+            save_subscriptions()
+            await update.message.reply_text("Группа подписалась на бота. Теперь участники будут получать сообщения от него.")
+
+# Unsubscribe command handler
+async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    if chat.type == Chat.PRIVATE:
+        if chat.id not in users:
+            response = await update.message.reply_text("Вы не подписаны.")
+            await asyncio.sleep(3)
+            await update.message.delete()
+            await response.delete()
+        else:
+            users.discard(chat.id)
+            save_subscriptions()
+            await update.message.reply_text("Вы отписались от бота.")
+    elif chat.type in [Chat.GROUP, Chat.SUPERGROUP]:
+        if chat.id not in groups:
+            response = await update.message.reply_text("Группа не подписана.")
+            await asyncio.sleep(3)
+            await update.message.delete()
+            await response.delete()
+        else:
+            groups.discard(chat.id)
+            save_subscriptions()
+            await update.message.reply_text("Группа отписалась от бота.")
+
+# Admin panel handler
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id == ADMIN_ID and update.effective_chat.type == Chat.PRIVATE:
+        keyboard = [
+            [InlineKeyboardButton("Разослать сообщение", callback_data="pass_message")],
+            [InlineKeyboardButton("Удалить", callback_data="delete_panel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Команды админа:", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Вы не администратор. Доступ к этой команде только у администратора.")
+
+# Button handler for admin panel
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    if query.data == "pass_message" and query.from_user.id == ADMIN_ID:
+        await query.message.reply_text("Отправь мне сообщение, фото, видео, стикер или GIF, которое нужно разослать всем пользователям и группам, подписанным на бота.")
+        context.user_data["awaiting_broadcast"] = True
+    elif query.data == "delete_panel" and query.from_user.id == ADMIN_ID:
+        await query.message.delete()
+
+# Function to handle the broadcast message and send it immediately to all subscribers
+async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id != ADMIN_ID:
+        return  # Ignore messages from non-admin users
+
+    # Track failed deliveries
+    failed_users = []
+    failed_groups = []
+
+    # Broadcast the message to all individual users
+    for user_id in users:
+        if user_id == ADMIN_ID:
+            continue  # Skip sending the message back to the admin's private chat
+        try:
+            await context.bot.copy_message(chat_id=user_id, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        except Exception as e:
+            print(f"Failed to send message to user {user_id}: {e}")
+            failed_users.append(user_id)
+
+    # Broadcast the message to all groups
+    for group_id in groups:
+        try:
+            await context.bot.copy_message(chat_id=group_id, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        except Exception as e:
+            print(f"Failed to send message to group {group_id}: {e}")
+            failed_groups.append(group_id)
+
+    # Send a confirmation message back to the admin
+    total_users = len(users)
+    total_groups = len(groups)
+    failed_users_count = len(failed_users)
+    failed_groups_count = len(failed_groups)
+
+    confirmation_message = (
+        f"✅ Message successfully sent!\n\n"
+        f"👤 Users: {total_users - failed_users_count}/{total_users} delivered\n"
+        f"👥 Groups: {total_groups - failed_groups_count}/{total_groups} delivered\n"
+    )
+
+    if failed_users_count > 0 or failed_groups_count > 0:
+        confirmation_message += "\n⚠️ Some deliveries failed. Check logs for details."
+
+    await update.message.reply_text(confirmation_message)
 
 # Define folders with custom names and pictures
 FOLDERS = {
@@ -323,7 +469,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Привет! Я ДМЛ бот, который поможет быстро найти необходимую информацию. \n"
         "Разработан пользователем @nklym \n"
         "Материалы используемые ботом взяты с [ДМЛ Форума](https://t.me/drakonomaniyaa_forum) \n"
-        "Используйте /commands чтобы открыть главное меню.",
+        "Используйте /commands чтобы открыть главное меню. \n"
+        "Пишите подписка чтобы подписаться на бота и получать уведомления. \n",
         parse_mode="Markdown",
         disable_web_page_preview=True
     )
@@ -685,27 +832,99 @@ async def send_pictures_one_by_one(update: Update, context: ContextTypes.DEFAULT
     # Send the message with the list of options
     await query.edit_message_text(text, reply_markup=reply_markup)
 
+# Function to send text with links
+async def send_text_with_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = "[This text is a link](https://example.com)"  # Example link
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",  # Use Markdown for formatting
+        disable_web_page_preview=True  # Disable link preview
+    )
+
+# Function to send an image with a description
+async def send_image_with_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    image_path = "path/to/image.jpg"  # Replace with your image path
+    caption = "Description: Hello fellas"  # Example description
+    with open(image_path, "rb") as photo:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=photo,
+            caption=caption,
+            parse_mode="Markdown"  # Use Markdown for formatting
+        )
+
+# Function to send a video with a description
+async def send_video_with_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    video_path = "path/to/video.mp4"  # Replace with your video path
+    caption = "Description: Hello fellas"  # Example description
+    with open(video_path, "rb") as video:
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id,
+            video=video,
+            caption=caption,
+            parse_mode="Markdown"  # Use Markdown for formatting
+        )
+
+# Function to send an image with a description containing a link
+async def send_image_with_link_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    image_path = "path/to/image.jpg"  # Replace with your image path
+    caption = "You can find this image [here](https://example.com)"  # Example description with a link
+    with open(image_path, "rb") as photo:
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=photo,
+            caption=caption,
+            parse_mode="Markdown",  # Use Markdown for formatting,
+        )
+
+# Function to send a video with a description containing a link
+async def send_video_with_link_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    video_path = "path/to/video.mp4"  # Replace with your video path
+    caption = "You can find this video [here](https://example.com)"  # Example description with a link
+    with open(video_path, "rb") as video:
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id,
+            video=video,
+            caption=caption,
+            parse_mode="Markdown",  # Use Markdown for formatting,
+        )
+
 # Run the bot
 def main():
+    load_subscriptions()  # Load subscriptions from file
+
     # Enable persistence for user_data and chat_data
     persistence = PicklePersistence(filepath="bot_data.pkl")
     app = ApplicationBuilder().token(TOKEN).persistence(persistence).build()
 
+    # Existing handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("commands", commands))  # New /commands command
-    app.add_handler(CommandHandler("cards", commands))  # Redirect to /commands
-    app.add_handler(CommandHandler("stickers", main_stickers))  # Redirect to /commands
+    app.add_handler(CommandHandler("commands", commands))
     app.add_handler(CallbackQueryHandler(main_cards, pattern="^main_cards$"))
     app.add_handler(CallbackQueryHandler(main_stickers, pattern="^main_stickers$"))
     app.add_handler(CallbackQueryHandler(folder_callback, pattern="^folder_"))
     app.add_handler(CallbackQueryHandler(subfolder_callback, pattern="^subfolder_"))
     app.add_handler(CallbackQueryHandler(picture_callback, pattern="^picture_"))
     app.add_handler(CallbackQueryHandler(sticker_callback, pattern="^sticker_"))
-    app.add_handler(CallbackQueryHandler(useful_links, pattern="^useful_links$"))  # Useful links handler
-    app.add_handler(CallbackQueryHandler(back_to_commands, pattern="^back_to_commands$"))  # Back button handler
+    app.add_handler(CallbackQueryHandler(useful_links, pattern="^useful_links$"))
+    app.add_handler(CallbackQueryHandler(back_to_commands, pattern="^back_to_commands$"))
     app.add_handler(CallbackQueryHandler(delete_message, pattern="^delete_message$"))
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_members))  # New members handler
-    app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, goodbye_member))  # Goodbye members handler
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_members))
+    app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, goodbye_member))
+
+    # New handlers for subscription and admin panel
+    app.add_handler(MessageHandler(filters.Regex(r"^подписка$"), subscribe))
+    app.add_handler(MessageHandler(filters.Regex(r"^отписка$"), unsubscribe))
+    app.add_handler(MessageHandler(filters.Text("админ") & filters.ChatType.PRIVATE, admin_panel))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_broadcast_message))
+
+    # Add handlers for testing
+    app.add_handler(CommandHandler("send_text_with_links", send_text_with_links))
+    app.add_handler(CommandHandler("send_image_with_description", send_image_with_description))
+    app.add_handler(CommandHandler("send_video_with_description", send_video_with_description))
+    app.add_handler(CommandHandler("send_image_with_link_description", send_image_with_link_description))
+    app.add_handler(CommandHandler("send_video_with_link_description", send_video_with_link_description))
 
     print("Бот is running...")
     app.run_polling()
@@ -714,7 +933,7 @@ if __name__ == "__main__":
     while True:
         try:
             print("Starting bot...")
-            main()  # Your bot's main function
+            main()
         except Exception as e:
             print(f"Bot crashed with error: {e}. Restarting in 5 seconds...")
             time.sleep(5)
