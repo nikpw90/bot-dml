@@ -1,6 +1,5 @@
 # git clone https://github.com/nikpw90/bot-dml.git - clone repo to console
-# cd bot-dml - go to copied repo
-# cd ~/bot-dml
+# cd ~/bot-dml go to copied repo
 # python3 -m venv venv - create virtual environment
 # source venv/bin/activate - activate virtual environment
 # pip install -r requirements.txt
@@ -9,6 +8,8 @@
 # git pull origin main (If you need to update your project with the latest changes)
 # pip freeze > requirements.txt to generate requirements.txt file
 
+
+#1 
 import os
 import time
 import json  # Import JSON for saving and loading subscription data
@@ -16,7 +17,9 @@ import asyncio  # Import asyncio for delay functionality
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Chat
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, PicklePersistence, MessageHandler, filters
 from datetime import datetime, timedelta
+from keep_alive import keep_alive
 
+keep_alive()
 #main.py bot token: 7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4
 #check.py bot token: 7795138996:AAHAI8AXDEP9aX6uTm4yXXS1XwzW-v5iN2U
 TOKEN = '7990437945:AAEQ72LU1MT2etZTifUO0e0EzPBuceYveo4'
